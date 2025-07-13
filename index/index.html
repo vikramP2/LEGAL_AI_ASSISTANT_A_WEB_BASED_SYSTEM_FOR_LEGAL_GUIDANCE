@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal AI Assistant</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            background: url('/static/bg.jpg') no-repeat center center fixed; 
+            background-size: cover;
+            color: white;
+        }
+        #container {
+            width: 50%; 
+            margin: auto; 
+            background: rgba(0, 0, 0, 0.7); 
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 50px;
+        }
+        textarea, select { 
+            width: 100%; 
+            margin-top: 10px; 
+            border-radius: 5px;
+            padding: 10px;
+        }
+        button { 
+            margin-top: 10px; 
+            padding: 10px 20px; 
+            font-size: 16px; 
+            border: none;
+            cursor: pointer;
+            background: #ff9800; 
+            color: white;
+            border-radius: 5px;
+        }
+        #results, #json-content {
+            display: none;
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            text-align: left;
+            color: black;
+        }
+        img { width: 100px; margin-bottom: 20px; }
+        .loading { font-style: italic; color: yellow; }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <img src="/static/logo.png" alt="Legal AI Logo">
+        <h1>Legal AI Assistant</h1>
+
+        <textarea id="question" placeholder="Ask a legal question..."></textarea>
+        <button onclick="askLegalQuestion()">Ask</button>
+        <button onclick="clearResults()">Clear</button>
+
+        <h2>Select Law File</h2>
+        <select id="lawSelector">
+            <option value="">Choose...</option>
+            {% for law in json_files %}
+                <option value="{{ law }}">{{ law }}</option>
+            {% endfor %}
+        </select>
+        <button onclick="viewJsonFile()">View</button>
+
+        <div id="results">
+            <h3>Results</h3>
+            <ul id="laws"></ul>
+            <h3>Legal Advice</h3>
+            <ul id="response"></ul>
+        </div>
+
+        <div id="json-content">
+            <h3>Law File Content</h3>
+            <p id="loadingMessage" class="loading" style="display: none;">Loading...</p>
+            <div id="json-data"></div>
+        </div>
+    </div>
+
+    <script>
+        function askLegalQuestion() {
+            const question = document.getElementById("question").value;
+            if (!question) {
+                alert("Please enter a question.");
+                return;
+            }
+
+            fetch("/ask", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question: question })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("results").style.display = "block";
+                let lawsDiv = document.getElementById("laws");
+                let responseDiv = document.getElementById("response");
+
+                lawsDiv.innerHTML = "";
+                responseDiv.innerHTML = "";
+
+                if (data.laws.length > 0) {
+                    data.laws.forEach(law => {
+                        lawsDiv.innerHTML += `<li><strong>${law.law} - Section ${law.section}:</strong> ${law.title} - ${law.description}</li>`;
+                    });
+                } else {
+                    lawsDiv.innerHTML = "<li>No specific sections found.</li>";
+                }
+
+                data.answer.forEach(sentence => {
+                    responseDiv.innerHTML += `<li>${sentence}</li>`;
+                });
+            });
+        }
+
+        function viewJsonFile() {
+            const selectedLaw = document.getElementById("lawSelector").value;
+            if (!selectedLaw) {
+                alert("Please select a law file.");
+                return;
+            }
+
+            document.getElementById("json-content").style.display = "block";
+            document.getElementById("loadingMessage").style.display = "block";
+            document.getElementById("json-data").innerHTML = ""; // Clear previous data
+
+            fetch("/view-json", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ law: selectedLaw })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("loadingMessage").style.display = "none";
+                
+                if (data.formatted) {
+                    document.getElementById("json-data").innerHTML = data.formatted.map(law => `<p>${law}</p>`).join("");
+                } else {
+                    document.getElementById("json-data").innerHTML = "<p>No data available.</p>";
+                }
+            });
+        }
+
+        function clearResults() {
+            document.getElementById("results").style.display = "none";
+            document.getElementById("json-content").style.display = "none";
+        }
+    </script>
+
+</body>
+</html>
